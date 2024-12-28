@@ -6,13 +6,17 @@ from config import AUTHORIZED_USERS
 
 router = Router()
 
-ALLOWED_CHAT_ID = -1001509336046  # Укажите ваш chat_id
-
 @router.message()
 async def restrict_access(message: types.Message, bot: Bot):
-    if message.chat.id != ALLOWED_CHAT_ID:
-        await bot.leave_chat(message.chat.id)
-        return
+    ALLOWED_CHAT_ID = -1001509336046  # Укажите ваш chat_id группы
+
+    # Проверяем тип чата
+    if message.chat.type in ("group", "supergroup"):
+        if message.chat.id != ALLOWED_CHAT_ID:
+            await bot.leave_chat(message.chat.id)  # Покидаем чужую группу
+    else:
+        # Игнорируем личные чаты
+        print("Сообщение из личного чата, пропускаем.")
 
 # Устанавливаем часовой пояс Киева
 KIEV_TIMEZONE = timezone('Europe/Kiev')
