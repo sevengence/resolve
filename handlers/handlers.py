@@ -13,15 +13,20 @@ KIEV_TIMEZONE = timezone('Europe/Kiev')
 ALLOWED_CHAT_ID = -1001509336046  # Укажите ваш chat_id
 
 
-def is_allowed_chat(chat_id: int) -> bool:
-    """Проверка, что сообщение пришло из разрешённой группы."""
-    return chat_id == ALLOWED_CHAT_ID
+async def check_and_leave_unauthorized_chats(message: types.Message, bot: Bot):
+    """
+    Проверяет, находится ли бот в разрешённой группе. Если нет — выходит из чата.
+    """
+    if message.chat.id != ALLOWED_CHAT_ID:
+        await bot.leave_chat(message.chat.id)
+        return False
+    return True
 
 
 @router.message(Command("list"))
 async def list_invoices_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id):
-        return  # Игнорируем сообщения из других чатов
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
 
     invoices = db.get_all_invoices()
     now = datetime.now(tz=KIEV_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
@@ -46,8 +51,8 @@ async def list_invoices_handler(message: types.Message, db, bot: Bot):
 
 @router.message(Command("add"))
 async def add_invoice_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id):
-        return  # Игнорируем сообщения из других чатов
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
 
     reply = message.reply_to_message
     client_name = None
@@ -76,7 +81,10 @@ async def add_invoice_handler(message: types.Message, db, bot: Bot):
 
 @router.message(Command("report"))
 async def detailed_report_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id) or message.from_user.id not in AUTHORIZED_USERS:
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
+
+    if message.from_user.id not in AUTHORIZED_USERS:
         await message.delete()
         return
 
@@ -129,8 +137,8 @@ async def detailed_report_handler(message: types.Message, db, bot: Bot):
 
 @router.message(Command("del"))
 async def delete_invoice_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id):
-        return  # Игнорируем сообщения из других чатов
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
 
     reply = message.reply_to_message
     if reply:
@@ -157,8 +165,8 @@ async def delete_invoice_handler(message: types.Message, db, bot: Bot):
 
 @router.message(lambda message: message.reply_to_message and "++" in message.text)
 async def resolve_invoice_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id):
-        return  # Игнорируем сообщения из других чатов
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
 
     reply = message.reply_to_message
     invoice = db.find_invoice_by_message_id(reply.message_id)
@@ -170,8 +178,8 @@ async def resolve_invoice_handler(message: types.Message, db, bot: Bot):
 
 @router.message()
 async def auto_add_invoice_handler(message: types.Message, db, bot: Bot):
-    if not is_allowed_chat(message.chat.id):
-        return  # Игнорируем сообщения из других чатов
+    if not await check_and_leave_unauthorized_chats(message, bot):
+        return
 
     if message.photo and message.caption:
         client_name = message.caption.strip()
