@@ -62,31 +62,42 @@ async def list_invoices_handler(message: types.Message, db, bot: Bot):
 
 @router.message(Command("add"))
 async def add_invoice_handler(message: types.Message, db, bot: Bot):
-    if not await check_chat_access(message, bot):
+    """
+    Обработчик команды /add.
+    Работает только в ответ на сообщение с фото.
+    """
+    reply = message.reply_to_message
+
+    if not reply or not reply.photo:
+        # Если команда не в ответ на сообщение с фото
+        await message.reply("❌ Команда /add работает только в ответ на сообщение с фото.")
         return
 
-    reply = message.reply_to_message
+    # Проверяем, есть ли текст в сообщении с фото
     client_name = None
-
-    if reply:
-        if reply.caption:
-            client_name = reply.caption.strip()
-        elif reply.text:
-            client_name = reply.text.strip()
+    if reply.caption:  # Если текст добавлен
+        client_name = reply.caption.strip()
+    elif len(message.text.split()) > 1:  # Если текст указан в команде /add Фамилия клиента
+        client_name = " ".join(message.text.split()[1:]).strip()
 
     if not client_name:
-        args = message.text.split(maxsplit=1)
-        if len(args) == 2:
-            client_name = args[1].strip()
-
-    if client_name:
-        db.add_invoice(
-            chat_id=reply.chat.id if reply else message.chat.id,
-            message_id=reply.message_id if reply else message.message_id,
-            client_name=client_name,
-            user_id=message.from_user.id,
-            full_name=message.from_user.full_name
+        # Если текст отсутствует, выводим подсказку
+        await message.reply(
+            "⚠️ Накладная должна содержать текст. "
+            "Вы можете:\n"
+            "- Добавить текст в сообщение с фото, а затем использовать команду /add.\n"
+            "- Использовать команду /add Фамилия клиента в ответ на это сообщение."
         )
+        return
+
+    # Добавляем накладную в базу данных без уведомления
+    db.add_invoice(
+        chat_id=reply.chat.id,
+        message_id=reply.message_id,
+        client_name=client_name,
+        user_id=message.from_user.id,
+        full_name=message.from_user.full_name
+    )
     await message.delete()
 
 
@@ -168,6 +179,26 @@ async def delete_invoice_handler(message: types.Message, db, bot: Bot):
         pass
     finally:
         await message.delete()
+
+
+@router.message(Command("help"))
+async def help_command_handler(message: types.Message, bot: Bot):
+    """
+    Команда /help: Показывает список доступных команд и их описание.
+    """
+    help_text = """
+🛠 Доступные команды:
+/list - Показать список накладных.
+/add - Добавить новую накладную. Используйте в ответ на сообщение с накладной.
+/del - Удалить накладную. Ответьте на сообщение или укажите её номер из списка.
+/report - Показать отчёт по накладным за текущий день (только для администраторов).
+/help - Показать это сообщение.
+
+💬 Дополнительно:
+- Ответьте на накладную с "++", чтобы пометить её как решённую.
+- Автоматическое добавление накладных: отправьте фото с текстом, и бот добавит её в список.
+    """
+    await message.reply(help_text)
 
 
 @router.message(lambda message: message.reply_to_message and "++" in message.text)
