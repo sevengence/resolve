@@ -6,20 +6,22 @@ from config import AUTHORIZED_USERS
 
 router = Router()
 
-# Укажите ID вашей группы
-ALLOWED_CHAT_ID = -1001509336046  # ID группы компании
+ALLOWED_CHAT_ID = -1001509336046  # Укажите правильный ID группы компании
 
 
 @router.message()
 async def restrict_access(message: types.Message, bot: Bot):
-    # Проверяем, что сообщение пришло из разрешённой группы
     if message.chat.id != ALLOWED_CHAT_ID:
-        print(f"Неизвестный чат: {message.chat.id}. Игнорируем...")
+        print(f"Сообщение из другого чата: {message.chat.id}. Игнорируем.")
         return  # Игнорируем все сообщения из других чатов
 
-    # Здесь размещается логика обработки сообщений в разрешённой группе
+    # Обработка сообщений только в разрешённой группе
     if message.text == "/start":
-        await message.reply("Бот работает только в группе компании!")
+        await message.reply("Бот успешно работает в группе компании!")
+
+    if message.text == "/list":
+        await message.reply("Вот список накладных...")
+
 
 # Устанавливаем часовой пояс Киева
 KIEV_TIMEZONE = timezone('Europe/Kiev')
